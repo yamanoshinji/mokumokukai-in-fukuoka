@@ -86,3 +86,38 @@ GitHub のソースコードと、S3 に配置された設計書（Excel:
 -   設計書ベースの根拠ある実装
 -   合意形成の可視化と共有
 -   週 1 回ペースの勉強会・実務利用の両立
+
+## 11. 構成図（案）
+```Mermaid
+graph TD
+    subgraph "Frontend & Auth"
+        User((User)) --> CF[CloudFront]
+        CF --> S3_Web["S3 (Web hosting)"]
+        User --> Cognito["Cognito (Auth)"]
+    end
+
+    subgraph "Core Logic (Serverless)"
+        API[API Gateway] --> Lambda_API["Lambda (FastAPI)"]
+        Lambda_API --> DDB[(DynamoDB)]
+        Lambda_API --> Step[Step Functions]
+    end
+
+    subgraph "AI Agent Execution"
+        Step --> Fargate["ECS Fargate (Agent)"]
+        ECR[Amazon ECR] -.->|Pull Image| Fargate
+        SSM[Systems Manager] -.->|Get GitHub Token| Fargate
+        Fargate --> Bedrock["Bedrock (Claude 3.5)"]
+        Fargate --> GitHub["GitHub (API)"]
+    end
+
+    subgraph "Logging"
+        Lambda_API -.-> CW[CloudWatch Logs]
+        Fargate -.-> CW
+        Step -.-> CW
+    end
+    
+    %% Cost Saving
+    style ECR fill:#e1f5fe,stroke:#01579b
+    style CW fill:#e1f5fe,stroke:#01579b
+    style SSM fill:#e1f5fe,stroke:#01579b
+```
