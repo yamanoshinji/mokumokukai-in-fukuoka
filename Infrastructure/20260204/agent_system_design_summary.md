@@ -88,7 +88,7 @@ GitHub のソースコードと、S3 に配置された設計書（Excel:
 -   週 1 回ペースの勉強会・実務利用の両立
 
 ## 11. 構成図（案）
-```Mermaid
+```mermaid
 graph TD
     subgraph "Frontend & Auth"
         User((User)) --> CF[CloudFront]
