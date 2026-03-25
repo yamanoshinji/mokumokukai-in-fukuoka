@@ -311,190 +311,674 @@ LLMアプリ：自分の知識だけで返答
 
 ### 4-2. 手順（75分）
 
+---
+
 #### 手順1: プロジェクト初期化（10分）
 
-目的: TypeScript + Node.js開発環境の構築
+**目的:** TypeScript + Node.js 開発環境を作り、「どのコードも同じ環境で動く」状態を確保する
 
-実装内容:
-- `npm init -y` で package.json作成
-- TypeScript設定（tsconfig.json）
-- 必要パッケージ導入
-  ```
-  npm install dotenv typescript ts-node @types/node
-  npm install <LLM_SDK>  # 例: openai（OpenAIの場合）
-  ```
+**なぜやるか:**
+プロジェクトの骨格（ディレクトリ構造、パッケージ管理、ビルド設定）を最初に揃えておかないと、
+あとで「自分の環境では動くのに他のメンバーでは動かない」問題が起きる。
+今日は3人で同じコードを動かすため、特に重要。
 
-完了チェック（すべて✓になったら次へ）:
-- [ ] `package.json` が存在し、`scripts` に `"start": "ts-node src/index.ts"` がある
-- [ ] `tsconfig.json` が存在
-- [ ] `npm start` でTypeScript → JavaScript変換が通る（エラーなし）
+---
 
-失敗時ガイド:
-- TypeScript型エラー:型定義ファイルをインストール→ `npm install --save-dev @types/<パッケージ名>`
-- パッケージ不足: `npm ls` で確認→ 足りないものを `npm install`
+**操作1: 作業ディレクトリを作成してプロジェクト初期化**
+
+```bash
+mkdir ai-chat-cli
+cd ai-chat-cli
+npm init -y
+mkdir src
+```
+
+→ `package.json` が作成される。中身を確認（name, version が入っていればOK）
+
+---
+
+**操作2: TypeScript と必要パッケージをインストール**
+
+```bash
+npm install openai dotenv
+npm install --save-dev typescript ts-node @types/node
+```
+
+**各パッケージの役割:**
+| パッケージ | 役割 |
+|----------|------|
+| `openai` | OpenAI APIを呼び出すSDK |
+| `dotenv` | `.env` ファイルから環境変数を読み込む |
+| `typescript` | JavaScript に型安全性を追加 |
+| `ts-node` | TypeScript を直接実行（コンパイル不要で開発できる） |
+| `@types/node` | Node.js の型定義（fs, readline などの補完が効く） |
+
+---
+
+**操作3: TypeScript 設定ファイルを作成**
+
+`tsconfig.json` をプロジェクトルートに作成:
+```json
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "strict": true,
+    "outDir": "./dist",
+    "rootDir": "./src"
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules"]
+}
+```
+
+---
+
+**操作4: package.json の scripts を追加**
+
+`package.json` の `"scripts"` を以下に書き換え:
+```json
+"scripts": {
+  "start": "ts-node src/index.ts",
+  "build": "tsc"
+}
+```
+
+---
+
+**操作5: エントリーポイントを作成して動作確認**
+
+`src/index.ts` を作成:
+```typescript
+console.log('✓ プロジェクト起動確認');
+```
+
+```bash
+npm start
+```
+
+→ `✓ プロジェクト起動確認` と表示されれば成功
+
+---
+
+**完了時のディレクトリ構造:**
+```
+ai-chat-cli/
+├── node_modules/
+├── src/
+│   └── index.ts      ← これから実装するメインファイル
+├── package.json
+├── package-lock.json
+└── tsconfig.json
+```
+
+**完了チェック（全員で声に出して確認）:**
+- [ ] `npm start` を実行 → `✓ プロジェクト起動確認` が表示される
+- [ ] `ls node_modules | grep openai` → `openai` が存在する
+- [ ] `tsconfig.json` が存在し、`"strict": true` が入っている
+
+**よくある詰まり:**
+| 症状 | 原因 | 対策 |
+|------|------|------|
+| `ts-node: command not found` | PATH未設定 | `npx ts-node src/index.ts` で実行 |
+| `Cannot find module 'openai'` | インストール失敗 | `npm install openai` を再実行 |
+| `tsconfig.json` のエラー | JSONのカンマ漏れ | カンマやブラケットをチェック |
 
 ---
 
 #### 手順2: 環境変数（APIキー）設定（10分）
 
-目的: APIキー管理を安全かつ再現可能に
+**目的:** APIキーをコードに直書きせず、安全に管理する
 
-実装内容:
-- プロジェクトルートに `.env` ファイル作成
-  ```
-  OPENAI_API_KEY=sk-...（実際のキーを記入）
-  ```
-- スタートアップコード（`src/index.ts` の最初）
-  ```typescript
-  import dotenv from 'dotenv';
-  dotenv.config();
-  
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    console.error('❌ エラー：OPENAI_API_KEY が .env に設定されていません');
-    process.exit(1);
-  }
-  console.log('✓ APIキー読み込み成功');
-  ```
+**なぜやるか:**
+APIキーをソースコードに直書きすると、GitHubに誤ってpushした瞬間に「キー漏洩」が発生する。
+`.env` ファイルを使い、GitHubにコミットしない設計にする。
+これは今日だけでなく、すべての開発プロジェクトで必須の基本である。
 
-完了チェック（すべて✓になったら次へ）:
-- [ ] `.env` ファイルが存在（`.gitignore` に `.env` を追記）
-- [ ] `npm start` を実行して「✓ APIキー読み込み成功」と表示される
-- [ ] `.env` の中身を削除して実行→「❌ エラー」が出ることを確認
+---
 
-失敗時ガイド:
-- `.env` ファイルが読み込まれない: `dotenv.config()` の直後に `console.log(process.env)` で確認
-- API キー名のスペル：SDKのドキュメント再確認
+**操作1: `.env` ファイルを作成**
+
+プロジェクトルートに `.env` を作成（実際のキーを記入）:
+```
+OPENAI_API_KEY=sk-proj-xxxxxxxxxxxxxxxxxxxx
+MODEL_NAME=gpt-3.5-turbo
+```
+
+---
+
+**操作2: `.gitignore` を作成してキーをGitから除外**
+
+```
+# .gitignore
+.env
+node_modules/
+dist/
+logs/
+```
+
+---
+
+**操作3: `.env.example` を作成（チームで共有するテンプレート）**
+
+```
+# .env.example（実際のキーは書かない。GitHubにコミットしてOK）
+OPENAI_API_KEY=sk-proj-your-key-here
+MODEL_NAME=gpt-3.5-turbo
+```
+
+---
+
+**操作4: `src/index.ts` を書き換えてキー読み込みを実装**
+
+```typescript
+import dotenv from 'dotenv';
+dotenv.config();  // ← 必ず最初の行で呼ぶ
+
+// APIキー存在確認（起動時に即チェック）
+const apiKey = process.env.OPENAI_API_KEY;
+const modelName = process.env.MODEL_NAME ?? 'gpt-3.5-turbo';
+
+if (!apiKey) {
+  console.error('❌ エラー: OPENAI_API_KEY が .env に設定されていません');
+  console.error('  .env.example を参考に .env ファイルを作成してください');
+  process.exit(1);  // ← プロセスを終了（エラーコード1）
+}
+
+console.log('✓ APIキー読み込み成功');
+console.log(`✓ 使用モデル: ${modelName}`);
+```
+
+---
+
+**動作確認:**
+
+```bash
+npm start
+# → ✓ APIキー読み込み成功
+# → ✓ 使用モデル: gpt-3.5-turbo
+
+# わざとキーを消してみる（.env の OPENAI_API_KEY= の値を削除）
+npm start
+# → ❌ エラー: OPENAI_API_KEY が .env に設定されていません
+```
+
+---
+
+**完了チェック（全員で声に出して確認）:**
+- [ ] `.env` にキーを設定した状態で `npm start` → 「✓ APIキー読み込み成功」
+- [ ] `.env` のキー値を空にして `npm start` → 「❌ エラー」が出てプロセス終了
+- [ ] `.gitignore` に `.env` が含まれている
+- [ ] `.env.example` がリポジトリに存在する（実キーは書かれていない）
+
+**よくある詰まり:**
+| 症状 | 原因 | 対策 |
+|------|------|------|
+| キーを設定したのに「❌ エラー」になる | `dotenv.config()` の呼び出し位置が間違っている | `import` 文の直後、他のコードより前に置く |
+| `.env` が読まれない | ファイル名が `.env.txt` になっている | `ls -a` で確認 → `mv .env.txt .env` |
+| キーが `undefined` になる | `.env` のキー名がコードと不一致 | コードの `process.env.OPENAI_API_KEY` とファイルのキー名を照合 |
 
 ---
 
 #### 手順3: 最小1ターン実装（20分）
 
-目的: LLMとの疎通を確認（まだCLIではなく固定入力で1回テスト）
+**目的:** コードから実際にOpenAI APIを呼び出し、応答が返ることを確認する
 
-実装内容:
-- 固定の質問文字列を用意
-  ```typescript
-  const userMessage = "こんにちは。あなたは何ですか？";
-  ```
-- LLMに送信し応答を取得（温度は低めに固定）
-  ```typescript
-  const response = await llm.createCompletion({
-    prompt: userMessage,
-    temperature: 0.2,  // 再現性重視
-    max_tokens: 100
+**なぜやるか:**
+CLIやログ機能を作る前に「APIが疎通する」を先に確認する。
+疎通前にUIを作ると、「動かない理由がAPIか、UIか」の切り分けができなくなる。
+「**1機能ずつ動作確認する**」原則の実践。
+
+---
+
+**操作1: `src/index.ts` を完全に書き換え**
+
+```typescript
+import dotenv from 'dotenv';
+dotenv.config();
+
+import OpenAI from 'openai';
+
+// 起動時チェック
+const apiKey = process.env.OPENAI_API_KEY;
+const modelName = process.env.MODEL_NAME ?? 'gpt-3.5-turbo';
+
+if (!apiKey) {
+  console.error('❌ エラー: OPENAI_API_KEY が設定されていません');
+  process.exit(1);
+}
+
+// OpenAIクライアント初期化
+const client = new OpenAI({ apiKey });
+
+// LLM呼び出し関数（温度を固定して再現性を確保）
+async function callLLM(userMessage: string): Promise<string> {
+  const response = await client.chat.completions.create({
+    model: modelName,
+    messages: [
+      {
+        role: 'system',
+        content: 'あなたは丁寧な日本語で回答するアシスタントです。',
+      },
+      {
+        role: 'user',
+        content: userMessage,
+      },
+    ],
+    temperature: 0.2,   // 再現性重視（0=完全固定, 1=最大揺らぎ）
+    max_tokens: 300,
   });
-  ```
-- 応答をコンソール出力
-  ```typescript
-  console.log('LLMの応答:', response.choices[0].text);
-  ```
-- エラー処理（try-catch）で常に対策
-  ```typescript
+
+  // 応答テキストを取り出す
+  const text = response.choices[0].message.content;
+  if (!text) {
+    throw new Error('LLMから空の応答が返されました');
+  }
+  return text;
+}
+
+// メイン処理（固定入力で1回テスト）
+async function main() {
+  console.log('✓ APIキー読み込み成功');
+  console.log(`✓ 使用モデル: ${modelName}`);
+  console.log('--- LLM疎通テスト開始 ---');
+
+  const testMessage = 'こんにちは。あなたは何ができますか？';
+  console.log(`送信: ${testMessage}`);
+
   try {
-    // LLM処理
+    const reply = await callLLM(testMessage);
+    console.log(`応答: ${reply}`);
+    console.log('--- 疎通テスト完了 ✓ ---');
   } catch (error) {
-    console.error('API呼び出し失敗:', error.message);
+    if (error instanceof Error) {
+      console.error(`❌ API呼び出し失敗: ${error.message}`);
+    } else {
+      console.error('❌ 不明なエラー:', error);
+    }
     process.exit(1);
   }
-  ```
+}
 
-完了チェック（すべて✓になったら次へ）:
-- [ ] `npm start` 1回を実行し、LLMから応答が返される
-- [ ] 同じコマンド2回実行して、応答がほぼ同じ（温度0.2の効果を確認）
-- [ ] APIタイムアウト・認証エラー時に、わかりやすいメッセージが出る
+main();
+```
 
-失敗時ガイド:
-- APIエラー 401/403: APIキー、使用モデルのアクセス権を確認
-- `undefined` エラー: `console.log(response)` で生レスポンス構造を確認
-- タイムアウト: ネットワーク接続、APIステータスページ確認
+---
+
+**操作2: 実行と応答確認**
+
+```bash
+npm start
+```
+
+期待する出力例:
+```
+✓ APIキー読み込み成功
+✓ 使用モデル: gpt-3.5-turbo
+--- LLM疎通テスト開始 ---
+送信: こんにちは。あなたは何ができますか？
+応答: こんにちは！私はテキストの生成や質問への回答、文章の要約など...
+--- 疎通テスト完了 ✓ ---
+```
+
+---
+
+**操作3: 温度 0.2 の効果を体感する**
+
+同じコマンドを **3回** 実行して、応答を書き留める:
+```bash
+npm start   # 1回目
+npm start   # 2回目
+npm start   # 3回目
+```
+
+→ 意味は同じだが語尾や言い回しが微妙に異なることを確認
+→ `temperature: 1.0` に変えて3回実行→応答の揺れが大きくなることを確認
+→ 終わったら `temperature: 0.2` に戻す
+
+---
+
+**完了チェック（全員で声に出して確認）:**
+- [ ] `npm start` → LLMから日本語の応答が返ってくる
+- [ ] 3回実行して「意味は同じ、言い回しは微妙に違う」が確認できた
+- [ ] `temperature: 1.0` では揺れが大きいことが体感できた
+- [ ] `temperature: 0.2` に戻してある
+
+**よくある詰まり:**
+| 症状 | 原因 | 対策 |
+|------|------|------|
+| `401 Unauthorized` | APIキーが無効 | OpenAI コンソールでキーを再確認 |
+| `404 Not Found` | モデル名が間違っている | `.env` の `MODEL_NAME` を `gpt-3.5-turbo` に修正 |
+| `429 Too Many Requests` | レートリミット超過 | 少し待って再試行（無料枠の場合は特に起きやすい） |
+| `undefined` エラー | response の構造を誤解 | `console.log(JSON.stringify(response, null, 2))` で生レスポンスを確認 |
+
+> **役割交代タイミング（目安: 01:00〜01:05）**
+> 交代前に今のDriverが「今何をしたか、次は何をするか」を30秒で説明する
 
 ---
 
 #### 手順4: CLI化（20分）
 
-目的: 固定入力から動的入力へ。複数回の対話を可能に
+**目的:** 固定入力から「何でも入力できるCLI対話ループ」に拡張する
 
-実装内容:
-- `readline` モジュールで標準入力を受け取り
-  ```typescript
-  import readline from 'readline';
-  
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout
+**なぜやるか:**
+手順3は「決まった質問を1回送るだけ」だった。
+実用的なチャットには「何でも入力できる → 返ってくる → また入力できる」のループが必要。
+ここで初めて「人間とAIの対話」が成立する。
+
+---
+
+**操作1: `src/index.ts` を書き換え（CLIループを追加）**
+
+```typescript
+import dotenv from 'dotenv';
+dotenv.config();
+
+import OpenAI from 'openai';
+import * as readline from 'readline';
+
+// 起動時チェック
+const apiKey = process.env.OPENAI_API_KEY;
+const modelName = process.env.MODEL_NAME ?? 'gpt-3.5-turbo';
+
+if (!apiKey) {
+  console.error('❌ エラー: OPENAI_API_KEY が設定されていません');
+  process.exit(1);
+}
+
+const client = new OpenAI({ apiKey });
+
+// LLM呼び出し関数（手順3から流用）
+async function callLLM(userMessage: string): Promise<string> {
+  const response = await client.chat.completions.create({
+    model: modelName,
+    messages: [
+      {
+        role: 'system',
+        content: 'あなたは丁寧な日本語で回答するアシスタントです。',
+      },
+      {
+        role: 'user',
+        content: userMessage,
+      },
+    ],
+    temperature: 0.2,
+    max_tokens: 300,
   });
-  
-  const askQuestion = (prompt) => {
-    return new Promise(resolve => {
-      rl.question(prompt, resolve);
+
+  const text = response.choices[0].message.content;
+  if (!text) throw new Error('LLMから空の応答が返されました');
+  return text;
+}
+
+// readline でユーザー入力を受け取るヘルパー
+function createPrompt(): readline.Interface {
+  return readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+}
+
+function askQuestion(rl: readline.Interface, question: string): Promise<string> {
+  return new Promise((resolve) => {
+    rl.question(question, (answer) => {
+      resolve(answer);
     });
-  };
-  ```
-- ループで複数回の対話を実現
-  ```typescript
+  });
+}
+
+// メイン: CLIループ
+async function main() {
+  console.log('✓ AI チャット CLI 起動');
+  console.log(`✓ モデル: ${modelName}`);
+  console.log('--- 会話を開始します（終了: exit） ---\n');
+
+  const rl = createPrompt();
+
   while (true) {
-    const userInput = await askQuestion('you: ');
-    if (userInput.toLowerCase() === 'exit') {
-      console.log('👋 終了します');
+    const userInput = await askQuestion(rl, 'you: ');
+
+    // 空入力をスキップ
+    if (userInput.trim() === '') {
+      continue;
+    }
+
+    // 終了コマンド
+    if (userInput.trim().toLowerCase() === 'exit') {
+      console.log('\n👋 終了します');
       rl.close();
       break;
     }
-    const response = await llm.call(userInput);
-    console.log('assistant:', response);
+
+    try {
+      process.stdout.write('assistant: ');  // 改行なしで出力（応答が続く）
+      const reply = await callLLM(userInput.trim());
+      console.log(reply);
+      console.log();  // 空行で見やすく
+    } catch (error) {
+      if (error instanceof Error) {
+        console.error(`\n❌ エラー: ${error.message}`);
+        console.error('  もう一度試してください\n');
+      }
+    }
   }
-  ```
+}
 
-完了チェック（すべて✓になったら次へ）:
-- [ ] `npm start` を実行後、プロンプト `you: ` が出現
-- [ ] 手動で質問を入力 → LLM応答が返される
-- [ ] 複数回やり取り可能
-- [ ] `exit` を入力→正常に終了
+main();
+```
 
-失敗時ガイド:
-- プロンプトが出ない: `readline` が正しくセットアップされているか確認
-- 入力後応答がない: LLM呼び出しのawaitが外れていないか確認
+---
+
+**操作2: 動作確認**
+
+```bash
+npm start
+```
+
+実際に入力して確認する（3人で交互に入力してみる）:
+```
+✓ AI チャット CLI 起動
+✓ モデル: gpt-3.5-turbo
+--- 会話を開始します（終了: exit） ---
+
+you: 今日の天気を教えて
+assistant: 申し訳ありませんが、私はリアルタイムの天気情報にアクセスする...
+
+you: TypeScript の型とは何ですか？
+assistant: TypeScript の型とは、変数や関数の引数・戻り値に「どんなデータが...
+
+you: exit
+👋 終了します
+```
+
+---
+
+**確認すること（会話しながら体感する）:**
+1. 空白だけ入力してEnter → スキップされる（ループが続く）
+2. 英語で質問しても日本語で返ってくる（system promptの効果）
+3. `exit` で正常終了する
+4. LLMが「知らない情報」（今日の天気など）を尋ねたとき、どう答えるか観察
+
+---
+
+**完了チェック（全員で声に出して確認）:**
+- [ ] `npm start` 後「you: 」プロンプトが表示される
+- [ ] 3回以上のやり取りができた
+- [ ] 空入力でもクラッシュしない
+- [ ] `exit` でプロセスが正常終了した（エラーなし）
+- [ ] LLMへのリクエスト失敗時にエラーメッセージが表示される（ネットを切って確認）
+
+**よくある詰まり:**
+| 症状 | 原因 | 対策 |
+|------|------|------|
+| `you: ` が表示されない | `rl.question` が動いていない | `createPrompt()` の戻り値を `rl` に代入しているか確認 |
+| 入力後に応答が来ない | `await callLLM()` の `await` が漏れている | `callLLM` の呼び出しに `await` があるか確認 |
+| `exit` でも終了しない | 比較文字列の問題 | `userInput.trim().toLowerCase()` になっているか確認 |
+| 2回目以降が入力できない | `rl.close()` をループ内で呼んでいる | `break` の後に `rl.close()` を呼んでいるか確認 |
+
+> **役割交代タイミング（目安: 01:20〜01:25）**
+> 交代前に今のDriverが「今何をしたか、次は何をするか」を30秒で説明する
 
 ---
 
 #### 手順5: 最低限ログ機能（15分）
 
-目的: デバッグの記録。今後の改善を帯跡できるように
+**目的:** 入力・応答・エラーの記録を自動化し、後から「何が起きたか」を追えるようにする
 
-実装内容:
-- ログファイル名（タイムスタンプ付き）
-  ```typescript
-  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const logFile = `log_${timestamp}.jsonl`;
-  ```
-- 各ターンをJSONLでログ記録
-  ```typescript
-  const logEntry = {
-    timestamp: new Date().toISOString(),
-    userInput,
-    temperaturare: 0.2,
-    modelUsed: 'gpt-3.5-turbo',
-    response,
-    status: 'success'
-  };
-  
-  fs.appendFileSync(logFile, JSON.stringify(logEntry) + '\n');
-  ```
-- エラー時も記録
-  ```typescript
-  logEntry.status = 'error';
-  logEntry.errorMessage = error.message;
-  ```
+**なぜやるか:**
+今後プロンプトを改善するとき、「以前の応答と今の応答の違い」を比較するためにログが必要。
+またエラーが起きたとき、「何を送ったときに失敗したか」がわからないと原因調査ができない。
+これは勉強会の成功指標「**なぜログが必要か**」を実装で体感するため。
 
-完了チェック（すべて✓になったら次へ）:
-- [ ] `npm start` で複数回やり取り
-- [ ] プロジェクトルートに `log_*.jsonl` ファイルが作成される
-- [ ] ログファイルをテキストエディタで開く→入力・応答・タイムスタンプが記録されている
-- [ ] わざとAPIキー削除→エラーが「error」ログとして記録される確認
+---
 
-失敗時ガイド:
-- ログファイルが作成されない: `fs` モジュールの`appendFileSync`がファイルシステムアクセス権確認
-- JSONフォーマットが壊れている: `JSON.stringify()` をテスト→ `console.log` で確認
+**操作1: ログディレクトリと型定義を追加**
+
+`src/index.ts` の先頭（imports の下）に追加:
+```typescript
+import * as fs from 'fs';
+import * as path from 'path';
+
+// ログ用の型定義
+interface LogEntry {
+  timestamp: string;
+  userInput: string;
+  modelName: string;
+  temperature: number;
+  response?: string;
+  status: 'success' | 'error';
+  errorMessage?: string;
+  durationMs?: number;
+}
+```
+
+---
+
+**操作2: ログ機能をまとめた定数と関数を追加**
+
+```typescript
+const TEMPERATURE = 0.2;
+const LOG_DIR = 'logs';
+
+// ログディレクトリを初回だけ作成
+if (!fs.existsSync(LOG_DIR)) {
+  fs.mkdirSync(LOG_DIR);
+}
+
+// セッション開始時のファイル名（実行ごとに1ファイル）
+const sessionTimestamp = new Date().toISOString().replace(/[:.]/g, '-');
+const logFilePath = path.join(LOG_DIR, `session_${sessionTimestamp}.jsonl`);
+
+// 1エントリをJSONLで追記
+function writeLog(entry: LogEntry): void {
+  const line = JSON.stringify(entry) + '\n';
+  fs.appendFileSync(logFilePath, line, 'utf-8');
+}
+```
+
+---
+
+**操作3: `callLLM` 関数にログを組み込む**
+
+```typescript
+async function callLLM(userInput: string): Promise<string> {
+  const startTime = Date.now();
+
+  try {
+    const response = await client.chat.completions.create({
+      model: modelName,
+      messages: [
+        { role: 'system', content: 'あなたは丁寧な日本語で回答するアシスタントです。' },
+        { role: 'user', content: userInput },
+      ],
+      temperature: TEMPERATURE,
+      max_tokens: 300,
+    });
+
+    const text = response.choices[0].message.content;
+    if (!text) throw new Error('LLMから空の応答が返されました');
+
+    // 成功ログ
+    writeLog({
+      timestamp: new Date().toISOString(),
+      userInput,
+      modelName,
+      temperature: TEMPERATURE,
+      response: text,
+      status: 'success',
+      durationMs: Date.now() - startTime,
+    });
+
+    return text;
+
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+
+    // エラーログ
+    writeLog({
+      timestamp: new Date().toISOString(),
+      userInput,
+      modelName,
+      temperature: TEMPERATURE,
+      status: 'error',
+      errorMessage,
+      durationMs: Date.now() - startTime,
+    });
+
+    throw error;  // 呼び出し元にも伝播させる
+  }
+}
+```
+
+---
+
+**操作4: 起動時にログファイルパスを表示**
+
+`main()` の先頭にログパス表示を追加:
+```typescript
+async function main() {
+  console.log('✓ AI チャット CLI 起動');
+  console.log(`✓ モデル: ${modelName}`);
+  console.log(`✓ ログ: ${logFilePath}`);   // ← 追加
+  console.log('--- 会話を開始します（終了: exit） ---\n');
+  // ... 以下は変更なし
+```
+
+---
+
+**操作5: 動作確認とログの目視確認**
+
+```bash
+npm start
+# 3回以上会話する
+# exit で終了
+
+# ログファイルを確認
+cat logs/session_*.jsonl
+```
+
+期待する出力（各行がJSON）:
+```json
+{"timestamp":"2026-03-25T09:00:00.000Z","userInput":"TypeScriptって何？","modelName":"gpt-3.5-turbo","temperature":0.2,"response":"TypeScriptは...","status":"success","durationMs":1234}
+{"timestamp":"2026-03-25T09:00:05.000Z","userInput":"ありがとう","modelName":"gpt-3.5-turbo","temperature":0.2,"response":"どういたしまして！","status":"success","durationMs":987}
+```
+
+---
+
+**完了チェック（全員で声に出して確認）:**
+- [ ] `npm start` → ログファイルのパスが画面に表示される
+- [ ] 3回以上会話した後 `exit` → `logs/` ディレクトリにファイルが作成されている
+- [ ] ログファイルをエディタで開く → 各行がJSONで、`timestamp`・`userInput`・`response`・`durationMs` が入っている
+- [ ] ネットを切って `npm start` → エラーが `status: "error"` でログに記録されている
+
+**よくある詰まり:**
+| 症状 | 原因 | 対策 |
+|------|------|------|
+| `logs/` が作られない | `fs.mkdirSync` の呼び出し位置が関数内にある | モジュールのトップレベルで1回だけ呼ぶ |
+| JSON が壊れている | `LogEntry` の値に `undefined` が混入 | `errorMessage?: string` のように省略可能（`?`）にする |
+| `durationMs` が `0` | `startTime` の取得位置が間違っている | `const startTime = Date.now()` を API呼び出しの直前に置く |
 
 ---
 
