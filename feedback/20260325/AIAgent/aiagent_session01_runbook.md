@@ -621,9 +621,6 @@ npm start   # 3回目
 | `429 Too Many Requests` | レートリミット超過 | 少し待って再試行（無料枠は60 RPMまで） |
 | 応答が空 | `result.response.text()` のパースエラー | `console.log(JSON.stringify(result.response, null, 2))` で生レスポンスを確認 |
 
-> **役割交代タイミング（目安: 01:00〜01:05）**
-> 交代前に今のDriverが「今何をしたか、次は何をするか」を30秒で説明する
-
 ---
 
 ### 手順4: CLI化（20分）
@@ -824,6 +821,8 @@ interface LogEntry {
 
 #### 操作5-2: ログ機能をまとめた定数と関数を追加
 
+`src/index.ts`に追加
+
 ```typescript
 const TEMPERATURE = 0.2;
 const LOG_DIR = 'logs';
@@ -847,6 +846,8 @@ function writeLog(entry: LogEntry): void {
 ---
 
 #### 操作5-3: `callLLM` 関数にログを組み込む
+
+`src/index.ts`に追加
 
 ```typescript
 async function callLLM(userInput: string): Promise<string> {
@@ -1055,7 +1056,6 @@ process.on('unhandledRejection', (reason, promise) => {
 
 ### 理解度チェック
 
-```code
 [ ] 「1ターン処理の流れ」を図で説明できる
     （入力 → プロンプト組立 → LLM送信 → 応答 → ログ記録 → 出力）
 
@@ -1067,11 +1067,9 @@ process.on('unhandledRejection', (reason, promise) => {
 
 [ ] 「LLMアプリ」と「エージェント」の違いを図で説明できる
     （アプリ＝LLM + プロンプト、エージェント＝それ + ツール + 制御ループ）
-```
 
 ### 実装スキルチェック
 
-```code
 [ ] CLIの起動→「you: 」プロンプトが出る
 
 [ ] 質問入力→LLM応答が返る→再度「you: 」プロンプト
@@ -1081,7 +1079,6 @@ process.on('unhandledRejection', (reason, promise) => {
 
 [ ] ログファイルをテキストエディタで開く→
     入力・温度・モデル名・応答・タイムスタンプが記録されている
-```
 
 ### 成果物
 
