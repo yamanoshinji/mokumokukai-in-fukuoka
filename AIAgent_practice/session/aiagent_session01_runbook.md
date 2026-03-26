@@ -371,7 +371,6 @@ ai-chat-cli/
 **完了チェック:**
 
 - [ ] `npm start` を実行 → `✓ プロジェクト起動確認` が表示される
-- [ ] `ls node_modules | grep openai` → `openai` が存在する
 - [ ] `tsconfig.json` が存在し、`"strict": true` が入っている
 
 **よくある詰まり:**
