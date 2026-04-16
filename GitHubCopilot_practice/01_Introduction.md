@@ -44,7 +44,7 @@ VSCode の Copilot Chat には **Agent / Ask / Plan** の3モードがある。
 
 ---
 
-## github-instractions.md
+## copilot-instructions.md
 
 - リポジトリの `.github/copilot-instructions.md` に配置することで、Copilot に対してプロジェクト固有の指示を与えられる
 - チャットの全セッションに自動的に適用される（毎回プロンプトに書く必要がない）
